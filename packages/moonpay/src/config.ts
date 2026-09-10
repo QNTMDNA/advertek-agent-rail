@@ -15,6 +15,7 @@ const moonPayEnvSchema = z.object({
     .string()
     .regex(/^sk_(test|live)_/, "Must be a MoonPay secret key (sk_test_… / sk_live_…)"),
   MOONPAY_USDC_CURRENCY_CODE: z.string().min(1).default("usdc_sol"),
+  MOONPAY_CRYPTO_DECIMALS: z.coerce.number().int().min(0).max(18).default(6),
   MOONPAY_DEFAULT_FIAT_CURRENCY: z.string().length(3).default("cad"),
   ADVERTEK_SETTLEMENT_WALLET: solanaAddressSchema,
 });
@@ -30,7 +31,11 @@ export type MoonPayConfig = {
   readonly apiBaseUrl: string;
   readonly buyWidgetBaseUrl: string;
   readonly sellWidgetBaseUrl: string;
-  /** MoonPay's currency code for USDC on Solana (`usdc_sol`). */
+  /**
+   * MoonPay's currency code for the settlement asset (`usdc_sol`). `usdc_sol`
+   * has no MoonPay test mode, so sandbox setups point this at a test-mode
+   * Solana asset (e.g. `sol`) and set MOONPAY_CRYPTO_DECIMALS to match.
+   */
   readonly usdcCurrencyCode: string;
   /** Lowercase ISO-4217 code the widget defaults to for fiat. */
   readonly defaultFiatCurrencyCode: string;
@@ -60,6 +65,7 @@ export function loadMoonPayConfig(env: NodeJS.ProcessEnv = process.env): MoonPay
     MOONPAY_PUBLISHABLE_KEY: env["MOONPAY_PUBLISHABLE_KEY"],
     MOONPAY_SECRET_KEY: env["MOONPAY_SECRET_KEY"],
     MOONPAY_USDC_CURRENCY_CODE: env["MOONPAY_USDC_CURRENCY_CODE"],
+    MOONPAY_CRYPTO_DECIMALS: env["MOONPAY_CRYPTO_DECIMALS"],
     MOONPAY_DEFAULT_FIAT_CURRENCY: env["MOONPAY_DEFAULT_FIAT_CURRENCY"],
     ADVERTEK_SETTLEMENT_WALLET: env["ADVERTEK_SETTLEMENT_WALLET"],
   });
@@ -94,7 +100,7 @@ export function loadMoonPayConfig(env: NodeJS.ProcessEnv = process.env): MoonPay
     usdcCurrencyCode: parsed.data.MOONPAY_USDC_CURRENCY_CODE.toLowerCase(),
     defaultFiatCurrencyCode: parsed.data.MOONPAY_DEFAULT_FIAT_CURRENCY.toLowerCase(),
     settlementWallet: parsed.data.ADVERTEK_SETTLEMENT_WALLET,
-    usdcDecimals: 6,
+    usdcDecimals: parsed.data.MOONPAY_CRYPTO_DECIMALS,
   };
 }
 

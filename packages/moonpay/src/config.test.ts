@@ -31,6 +31,19 @@ describe("loadMoonPayConfig", () => {
     expect(config.defaultFiatCurrencyCode).toBe("usd");
   });
 
+  it("allows a test-mode asset with different decimals for sandbox", () => {
+    const config = loadMoonPayConfig({
+      ...sandboxEnv,
+      MOONPAY_USDC_CURRENCY_CODE: "sol",
+      MOONPAY_CRYPTO_DECIMALS: "9",
+    });
+    expect(config.usdcCurrencyCode).toBe("sol");
+    expect(config.usdcDecimals).toBe(9);
+    expect(() =>
+      loadMoonPayConfig({ ...sandboxEnv, MOONPAY_CRYPTO_DECIMALS: "abc" }),
+    ).toThrow(/MOONPAY_CRYPTO_DECIMALS/);
+  });
+
   it("uses production widget hosts with live keys", () => {
     const config = loadMoonPayConfig({
       ...sandboxEnv,
