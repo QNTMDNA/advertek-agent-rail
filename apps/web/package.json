@@ -16,6 +16,7 @@
     "@advertek/db": "workspace:*",
     "@advertek/fulfillment": "workspace:*",
     "@advertek/mcp-server": "workspace:*",
+    "@advertek/moonpay": "workspace:*",
     "@advertek/payments": "workspace:*",
     "@advertek/quote-api": "workspace:*",
     "@advertek/types": "workspace:*",

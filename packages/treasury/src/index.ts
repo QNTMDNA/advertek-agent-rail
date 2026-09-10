@@ -99,6 +99,7 @@ export {
 export {
   runUsdcToCadSweep,
   type DepositFn,
+  type OrderIdBySignatureLookup,
   type RunSweepDeps,
   type RunSweepResult,
 } from "./sweep.js";

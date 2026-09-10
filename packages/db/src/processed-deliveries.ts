@@ -1,6 +1,6 @@
 import type { SqlExecutor } from "./executor.js";
 
-export type DeliverySource = "quicknode" | "advertek";
+export type DeliverySource = "quicknode" | "advertek" | "moonpay";
 
 /**
  * Idempotency store for inbound webhook deliveries. QuickNode retries Streams

@@ -69,6 +69,12 @@ A single order flows across packages like this:
    (`waitForUsdcPaymentConfirmation`) or via a signature-verified QuickNode
    Streams webhook (`handleQuickNodeWebhook`), which parses the order id back out
    of the memo and calls an `OrderStatusUpdater`.
+   **`@advertek/moonpay`** is the fiat alternative for the same step: a signed
+   MoonPay Buy URL (order id in `externalTransactionId`, same memo format)
+   has the buyer pay in fiat while MoonPay delivers USDC to the settlement
+   wallet; `handleMoonPayWebhook` verifies `Moonpay-Signature-V2` and calls
+   the same `OrderStatusUpdater`. It also wraps MoonPay Sell (USDC → fiat)
+   quotes/lookups as an off-ramp alternative to OKX.
 4. **`@advertek/fulfillment`** implements that updater
    (`createFulfillmentOrderStatusUpdater`): it looks up the order's details, maps
    our `productLine` to an Advertek product code, and POSTs the order to

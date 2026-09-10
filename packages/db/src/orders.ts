@@ -26,6 +26,12 @@ export interface OrderStore extends OrderStatusUpdater {
   ): Promise<void>;
   /** Stamps Advertek's vendor order id once fulfillment submits the order. */
   setVendorOrderId(orderId: string, vendorOrderId: string): Promise<void>;
+  /**
+   * Reverse lookup from an on-chain signature to the order it paid for. Lets
+   * the treasury sweep attribute memo-less transfers (e.g. USDC delivered by
+   * MoonPay on a buyer's behalf) whose signature we learned from a webhook.
+   */
+  findOrderIdByPaymentSignature(signature: string): Promise<string | undefined>;
 }
 
 export function createPostgresOrderStore(executor: SqlExecutor): OrderStore {
@@ -98,6 +104,14 @@ export function createPostgresOrderStore(executor: SqlExecutor): OrderStore {
       if (updated.length === 0) {
         throw new OrderNotFoundError(`Unknown order: ${orderId}`);
       }
+    },
+
+    async findOrderIdByPaymentSignature(signature) {
+      const rows = await executor.query<{ id: string }>(
+        "SELECT id FROM orders WHERE payment_signature = $1 LIMIT 1",
+        [signature],
+      );
+      return rows[0]?.id;
     },
   };
 }

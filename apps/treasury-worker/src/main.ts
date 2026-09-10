@@ -2,6 +2,7 @@
 import {
   applyMigrations,
   createPostgresExecutor,
+  createPostgresOrderStore,
   createPostgresSweepLedger,
   loadDbConfig,
   loadPackageMigrations,
@@ -45,6 +46,7 @@ async function main(): Promise<void> {
   const executor = createPostgresExecutor(loadDbConfig());
   await applyMigrations(executor, loadPackageMigrations());
   const ledger = createPostgresSweepLedger(executor);
+  const orderStore = createPostgresOrderStore(executor);
 
   const connection = new Connection(onChain.quicknodeRpcUrl, "confirmed");
   const tradingOkxClient = createOkxHttpClient(okxCredentials);
@@ -57,6 +59,7 @@ async function main(): Promise<void> {
     tradingOkxClient,
     ledger,
     minSweepAmountBaseUnits: schedule.minSweepAmountBaseUnits,
+    orderIdBySignature: orderStore,
     depositToOkx: ({ amountBaseUnits, okxDepositAddress }) =>
       depositUsdcToOkx(
         { sendAndConfirm: createDefaultSendAndConfirm(connection) },
