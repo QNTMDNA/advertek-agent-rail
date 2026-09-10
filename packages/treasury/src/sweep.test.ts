@@ -13,7 +13,11 @@ const settlementWallet = settlement.publicKey.toBase58();
 const usdcMintAddress = mint.publicKey.toBase58();
 const settlementAta = getAssociatedTokenAddressSync(mint.publicKey, settlement.publicKey).toBase58();
 
-function transferTx(amountBaseUnits: bigint, memo: string, slot: number): ParsedTransactionWithMeta {
+function transferTx(
+  amountBaseUnits: bigint,
+  memo: string | undefined,
+  slot: number,
+): ParsedTransactionWithMeta {
   return {
     slot,
     blockTime: 1_700_000_000,
@@ -35,7 +39,9 @@ function transferTx(amountBaseUnits: bigint, memo: string, slot: number): Parsed
               },
             },
           },
-          { program: "spl-memo", programId: MEMO_PROGRAM_ID, parsed: memo },
+          ...(memo === undefined
+            ? []
+            : [{ program: "spl-memo", programId: MEMO_PROGRAM_ID, parsed: memo }]),
         ],
       },
     },
@@ -158,6 +164,47 @@ describe("runUsdcToCadSweep", () => {
 
     const recorded = await deps.ledger.getMostRecent();
     expect(recorded?.sweepId).toBe("sweep_test_1");
+  });
+
+  it("attributes memo-less transfers (e.g. MoonPay deliveries) via the signature lookup and skips unknown ones", async () => {
+    const getSignaturesForAddress = vi.fn(() =>
+      Promise.resolve([
+        { signature: "sig_unknown", slot: 3, err: null } as never,
+        { signature: "sig_moonpay", slot: 2, err: null } as never,
+        { signature: "sig_a", slot: 1, err: null } as never,
+      ]),
+    );
+    const getParsedTransaction = vi.fn((signature: string) => {
+      if (signature === "sig_a") {
+        return Promise.resolve(transferTx(60_000_000n, memoA, 1));
+      }
+      if (signature === "sig_moonpay") {
+        return Promise.resolve(transferTx(12_500_000n, undefined, 2));
+      }
+      if (signature === "sig_unknown") {
+        return Promise.resolve(transferTx(1_000_000n, undefined, 3));
+      }
+      return Promise.resolve(null);
+    });
+    const findOrderIdByPaymentSignature = vi.fn((signature: string) =>
+      Promise.resolve(signature === "sig_moonpay" ? "ord_moonpay" : undefined),
+    );
+    const deps: RunSweepDeps = {
+      ...baseDeps({ connection: { getSignaturesForAddress, getParsedTransaction } }),
+      orderIdBySignature: { findOrderIdByPaymentSignature },
+    };
+
+    const result = await runUsdcToCadSweep(deps);
+
+    expect(result.swept).toBe(true);
+    expect(result.sweep?.coveredTransfers).toEqual([
+      { signature: "sig_moonpay", orderId: "ord_moonpay", amountBaseUnits: 12_500_000n },
+      { signature: "sig_a", orderId: "ord_a", amountBaseUnits: 60_000_000n },
+    ]);
+    expect(result.sweep?.coveredAmountBaseUnits).toBe(72_500_000n);
+    expect(findOrderIdByPaymentSignature).toHaveBeenCalledWith("sig_moonpay");
+    expect(findOrderIdByPaymentSignature).toHaveBeenCalledWith("sig_unknown");
+    expect(findOrderIdByPaymentSignature).not.toHaveBeenCalledWith("sig_a");
   });
 
   it("does not sweep, deposit, or call OKX when there are no new memo-tagged transfers", async () => {

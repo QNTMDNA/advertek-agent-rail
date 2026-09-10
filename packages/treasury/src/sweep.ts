@@ -20,6 +20,16 @@ export interface DepositFn {
   }>;
 }
 
+/**
+ * Resolves an order id for an inbound transfer that carries no memo. Used
+ * for rails where a third party (e.g. MoonPay) delivers the USDC on the
+ * buyer's behalf and we learned the on-chain signature from their webhook
+ * instead of from a memo we asked the payer to attach.
+ */
+export interface OrderIdBySignatureLookup {
+  findOrderIdByPaymentSignature(signature: string): Promise<string | undefined>;
+}
+
 export interface RunSweepDeps {
   readonly connection: TreasurySolanaRpcClient;
   readonly settlementWallet: string;
@@ -31,6 +41,7 @@ export interface RunSweepDeps {
   readonly depositToOkx: DepositFn;
   readonly getOkxUsdcDepositAddress: () => Promise<string>;
   readonly minSweepAmountBaseUnits: bigint;
+  readonly orderIdBySignature?: OrderIdBySignatureLookup;
   readonly now?: () => Date;
   readonly createSweepId?: () => string;
 }
@@ -63,13 +74,20 @@ export async function runUsdcToCadSweep(deps: RunSweepDeps): Promise<RunSweepRes
     previousSweep ? { untilSignature: previousSweep.newestCoveredSignature } : {},
   );
 
-  const coveredTransfers = transfers
-    .filter((transfer) => transfer.orderId !== undefined)
-    .map((transfer) => ({
+  const coveredTransfers: { signature: string; orderId: string; amountBaseUnits: bigint }[] = [];
+  for (const transfer of transfers) {
+    const orderId =
+      transfer.orderId ??
+      (await deps.orderIdBySignature?.findOrderIdByPaymentSignature(transfer.signature));
+    if (orderId === undefined) {
+      continue;
+    }
+    coveredTransfers.push({
       signature: transfer.signature,
-      orderId: transfer.orderId as string,
+      orderId,
       amountBaseUnits: transfer.amountBaseUnits,
-    }));
+    });
+  }
 
   const coveredAmountBaseUnits = coveredTransfers.reduce(
     (sum, transfer) => sum + transfer.amountBaseUnits,
@@ -81,7 +99,7 @@ export async function runUsdcToCadSweep(deps: RunSweepDeps): Promise<RunSweepRes
       swept: false,
       reason:
         coveredTransfers.length === 0
-          ? "no new memo-matched inbound USDC transfers since the last sweep"
+          ? "no new order-matched inbound USDC transfers since the last sweep"
           : "accumulated USDC is below the configured sweep threshold",
     };
   }

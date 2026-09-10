@@ -69,6 +69,9 @@ importers:
       '@advertek/mcp-server':
         specifier: workspace:*
         version: link:../../packages/mcp-server
+      '@advertek/moonpay':
+        specifier: workspace:*
+        version: link:../../packages/moonpay
       '@advertek/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -196,6 +199,19 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.26.0
         version: 1.26.0(zod@3.25.76)
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)
+
+  packages/moonpay:
+    dependencies:
+      '@advertek/payments':
+        specifier: workspace:*
+        version: link:../payments
       zod:
         specifier: ^3.25.76
         version: 3.25.76

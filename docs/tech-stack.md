@@ -39,6 +39,17 @@ Solana + QuickNode; fiat off-ramp stays on OKX.
   serverless functions cannot hold long-polling confirmation open.
 - `POST /api/webhooks/advertek` — inbound Basic-auth-verified Advertek status
   events → `bridgeAdvertekStatusToOrderStatus` → fan-out.
+- `POST /api/payments/moonpay/checkout` — fiat on-ramp: returns a signed
+  MoonPay Buy URL (`@advertek/moonpay`) that charges the buyer in fiat and
+  delivers the order's exact USDC to the settlement wallet, with the order id
+  bound as `externalTransactionId` (same `advertek:order:{id}:{nonce}` shape
+  as the Solana memo).
+- `POST /api/webhooks/moonpay` — MoonPay Buy confirmation
+  (`Moonpay-Signature-V2`, HMAC-SHA256 via `MOONPAY_WEBHOOK_KEY`, 5-minute
+  replay window). Only `completed` transactions into our wallet/currency
+  mark an order `paid`; idempotency key = MoonPay transaction id. The
+  treasury sweep attributes these memo-less on-chain transfers via
+  `OrderStore.findOrderIdByPaymentSignature`.
 - Webhook handlers write to Postgres first (idempotency key = delivery id /
   tx signature), then trigger fulfillment — retries are safe.
 
@@ -92,6 +103,7 @@ Solana + QuickNode; fiat off-ramp stays on OKX.
 | `packages/mcp-server` | MCP tool registrations (core), stdio entry for local dev |
 | `packages/quote-api` | Pricing core (HTTP layer lives in `apps/web`) |
 | `packages/payments` | Solana USDC rail (unchanged) |
+| `packages/moonpay` | MoonPay fiat↔USDC: signed Buy/Sell widget URLs, quotes, webhook verification, sell-transaction lookup |
 | `packages/fulfillment` | Advertek production integration (unchanged) |
 | `packages/treasury` | Sweep/reconcile core (unchanged; run by the worker) |
 | `packages/types` / `catalog` / `webhooks` | Shared foundations (unchanged) |
