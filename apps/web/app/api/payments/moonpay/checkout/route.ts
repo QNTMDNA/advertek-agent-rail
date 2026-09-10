@@ -1,4 +1,5 @@
 import {
+  checkMoonPayBuyEligibility,
   createMoonPayBuyCheckout,
   createMoonPayHttpClient,
   getMoonPayBuyQuote,
@@ -17,9 +18,15 @@ export const runtime = "nodejs";
  * bound into the URL (`externalTransactionId`) so the MoonPay webhook can
  * mark the right order paid. The URL is opened by the customer (D2C) or
  * handed to a human by the agent (A2A) — this route never redirects.
+ *
+ * MoonPay is a US-only rail for us (MoonPay geoblocks USDC for Canadian
+ * residents), so the caller must identify the buyer's country and/or IP;
+ * ineligible buyers get a 403 and should be routed to another rail.
  */
 const checkoutRequestSchema = z.object({
   orderId: z.string().min(1),
+  /** Buyer's ISO-3166-1 alpha-2 country, as known to the agent / checkout. */
+  customerCountry: z.string().length(2).optional(),
   /** USDC base units as a base-10 integer string (JSON has no bigint). */
   amountBaseUnits: z.string().regex(/^\d+$/, "must be a base-10 integer string"),
   fiatCurrencyCode: z.string().length(3).optional(),
@@ -32,6 +39,9 @@ const checkoutRequestSchema = z.object({
    * session (an agent's server IP would lock the human out).
    */
   customerIpAddress: z.string().ip().optional(),
+}).refine((body) => body.customerCountry !== undefined || body.customerIpAddress !== undefined, {
+  message: "customerCountry or customerIpAddress is required",
+  path: ["customerCountry"],
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -39,6 +49,28 @@ export async function POST(request: Request): Promise<Response> {
     const body = checkoutRequestSchema.parse(await request.json());
     const config = loadMoonPayConfig();
     const amountBaseUnits = BigInt(body.amountBaseUnits);
+    const client = createMoonPayHttpClient(config);
+
+    const eligibility = await checkMoonPayBuyEligibility(
+      { config, client },
+      {
+        ...(body.customerCountry ? { countryCode: body.customerCountry } : {}),
+        ...(body.customerIpAddress ? { ipAddress: body.customerIpAddress } : {}),
+      },
+    );
+    if (!eligibility.eligible) {
+      return jsonResponse(
+        {
+          ok: false,
+          rail: "moonpay-buy",
+          error: `MoonPay checkout is not available to buyers in ${eligibility.countryCode}`,
+          reason: eligibility.reason,
+          countryCode: eligibility.countryCode,
+          allowedCountries: config.allowedCountryCodes,
+        },
+        { status: 403 },
+      );
+    }
 
     const checkout = createMoonPayBuyCheckout(
       { config },
@@ -53,7 +85,6 @@ export async function POST(request: Request): Promise<Response> {
       },
     );
 
-    const client = createMoonPayHttpClient(config);
     const quote = await getMoonPayBuyQuote(
       { config, client },
       {
@@ -71,6 +102,7 @@ export async function POST(request: Request): Promise<Response> {
       ok: true,
       orderId: checkout.orderId,
       rail: "moonpay-buy",
+      countryCode: eligibility.countryCode,
       url: checkout.url,
       amountBaseUnits: checkout.amountBaseUnits,
       currencyCode: checkout.currencyCode,

@@ -43,7 +43,10 @@ Solana + QuickNode; fiat off-ramp stays on OKX.
   MoonPay Buy URL (`@advertek/moonpay`) that charges the buyer in fiat and
   delivers the order's exact USDC to the settlement wallet, with the order id
   bound as `externalTransactionId` (same `advertek:order:{id}:{nonce}` shape
-  as the Solana memo).
+  as the Solana memo). **US-only**: MoonPay geoblocks USDC for CA residents, so
+  the route requires `customerCountry` and/or `customerIpAddress`, checks them
+  against `MOONPAY_ALLOWED_COUNTRIES` (IP via MoonPay `/v3/ip_address`), and
+  403s ineligible buyers so the agent can fall back to another rail.
 - `POST /api/webhooks/moonpay` — MoonPay Buy confirmation
   (`Moonpay-Signature-V2`, HMAC-SHA256 via `MOONPAY_WEBHOOK_KEY`, 5-minute
   replay window). Only `completed` transactions into our wallet/currency

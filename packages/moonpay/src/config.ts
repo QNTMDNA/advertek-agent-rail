@@ -16,7 +16,17 @@ const moonPayEnvSchema = z.object({
     .regex(/^sk_(test|live)_/, "Must be a MoonPay secret key (sk_test_… / sk_live_…)"),
   MOONPAY_USDC_CURRENCY_CODE: z.string().min(1).default("usdc_sol"),
   MOONPAY_CRYPTO_DECIMALS: z.coerce.number().int().min(0).max(18).default(6),
-  MOONPAY_DEFAULT_FIAT_CURRENCY: z.string().length(3).default("cad"),
+  MOONPAY_DEFAULT_FIAT_CURRENCY: z.string().length(3).default("usd"),
+  MOONPAY_ALLOWED_COUNTRIES: z
+    .string()
+    .default("US")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((code) => code.trim().toUpperCase())
+        .filter((code) => code.length > 0),
+    )
+    .pipe(z.array(z.string().length(2)).nonempty()),
   ADVERTEK_SETTLEMENT_WALLET: solanaAddressSchema,
 });
 
@@ -41,6 +51,11 @@ export type MoonPayConfig = {
   readonly defaultFiatCurrencyCode: string;
   readonly settlementWallet: string;
   readonly usdcDecimals: number;
+  /**
+   * ISO-3166-1 alpha-2 countries we offer MoonPay Buy to. MoonPay geoblocks
+   * USDC for CA (and Sell entirely), so this is US-only by default.
+   */
+  readonly allowedCountryCodes: readonly string[];
 };
 
 const ENVIRONMENT_URLS: Record<
@@ -67,6 +82,7 @@ export function loadMoonPayConfig(env: NodeJS.ProcessEnv = process.env): MoonPay
     MOONPAY_USDC_CURRENCY_CODE: env["MOONPAY_USDC_CURRENCY_CODE"],
     MOONPAY_CRYPTO_DECIMALS: env["MOONPAY_CRYPTO_DECIMALS"],
     MOONPAY_DEFAULT_FIAT_CURRENCY: env["MOONPAY_DEFAULT_FIAT_CURRENCY"],
+    MOONPAY_ALLOWED_COUNTRIES: env["MOONPAY_ALLOWED_COUNTRIES"],
     ADVERTEK_SETTLEMENT_WALLET: env["ADVERTEK_SETTLEMENT_WALLET"],
   });
 
@@ -101,6 +117,7 @@ export function loadMoonPayConfig(env: NodeJS.ProcessEnv = process.env): MoonPay
     defaultFiatCurrencyCode: parsed.data.MOONPAY_DEFAULT_FIAT_CURRENCY.toLowerCase(),
     settlementWallet: parsed.data.ADVERTEK_SETTLEMENT_WALLET,
     usdcDecimals: parsed.data.MOONPAY_CRYPTO_DECIMALS,
+    allowedCountryCodes: parsed.data.MOONPAY_ALLOWED_COUNTRIES,
   };
 }
 

@@ -10,12 +10,13 @@ const sandboxEnv = {
 };
 
 describe("loadMoonPayConfig", () => {
-  it("defaults to sandbox with usdc_sol / cad and sandbox widget hosts", () => {
+  it("defaults to sandbox with usdc_sol / usd, US-only, and sandbox widget hosts", () => {
     const config = loadMoonPayConfig(sandboxEnv);
     expect(config.environment).toBe("sandbox");
     expect(config.usdcCurrencyCode).toBe("usdc_sol");
-    expect(config.defaultFiatCurrencyCode).toBe("cad");
+    expect(config.defaultFiatCurrencyCode).toBe("usd");
     expect(config.usdcDecimals).toBe(6);
+    expect(config.allowedCountryCodes).toEqual(["US"]);
     expect(config.buyWidgetBaseUrl).toBe("https://buy-sandbox.moonpay.com");
     expect(config.sellWidgetBaseUrl).toBe("https://sell-sandbox.moonpay.com");
     expect(config.settlementWallet).toBe(WALLET);
@@ -42,6 +43,15 @@ describe("loadMoonPayConfig", () => {
     expect(() =>
       loadMoonPayConfig({ ...sandboxEnv, MOONPAY_CRYPTO_DECIMALS: "abc" }),
     ).toThrow(/MOONPAY_CRYPTO_DECIMALS/);
+  });
+
+  it("parses MOONPAY_ALLOWED_COUNTRIES as an uppercase list", () => {
+    expect(
+      loadMoonPayConfig({ ...sandboxEnv, MOONPAY_ALLOWED_COUNTRIES: "us, gb ," }).allowedCountryCodes,
+    ).toEqual(["US", "GB"]);
+    expect(() => loadMoonPayConfig({ ...sandboxEnv, MOONPAY_ALLOWED_COUNTRIES: "usa" })).toThrow(
+      /MOONPAY_ALLOWED_COUNTRIES/,
+    );
   });
 
   it("uses production widget hosts with live keys", () => {

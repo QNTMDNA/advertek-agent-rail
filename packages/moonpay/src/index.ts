@@ -36,6 +36,16 @@ export {
   type MoonPayBuyCheckout,
 } from "./buy-checkout.js";
 export {
+  checkMoonPayBuyEligibility,
+  lookupMoonPayGeo,
+  type BuyEligibilityDeps,
+  type BuyEligibilityInput,
+  type GeoDeps,
+  type MoonPayBuyEligibility,
+  type MoonPayGeo,
+  type MoonPayIneligibleReason,
+} from "./eligibility.js";
+export {
   getMoonPayBuyQuote,
   getMoonPaySellQuote,
   type GetBuyQuoteInput,
